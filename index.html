@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FolioForge | AI Portfolio Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              display: ['Space Grotesk', 'sans-serif'],
+              serif: ['Playfair Display', 'serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            colors: {
+              background: '#030014', // Deepest Space Blue
+              surface: '#0F1123',    // Card Surface
+              'surface-light': '#181B34', // Hover State
+              primary: '#818CF8',    // Indigo-400 (Softer for dark mode)
+              'primary-glow': '#6366F1', // Indigo-500
+              secondary: '#1E293B',  // Slate-800
+              'text-main': '#F1F5F9', // Slate-100
+              'text-secondary': '#94A3B8', // Slate-400
+              'text-disabled': '#475569', // Slate-600
+              success: '#34D399',    // Emerald-400
+              warning: '#FBBF24',    // Amber-400
+              error: '#F87171',      // Red-400
+              border: 'rgba(255, 255, 255, 0.08)', // Subtle white border
+            },
+            boxShadow: {
+              'glow': '0 0 20px rgba(99, 102, 241, 0.15)',
+              'glow-hover': '0 0 30px rgba(99, 102, 241, 0.3)',
+              'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+            },
+            animation: {
+              'aurora': 'aurora 20s linear infinite',
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'float': 'float 6s ease-in-out infinite',
+              'gradient-x': 'gradient-x 3s ease infinite',
+            },
+            keyframes: {
+              aurora: {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' },
+              },
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-20px)' },
+              },
+              'gradient-x': {
+                '0%, 100%': {
+                    'background-size': '200% 200%',
+                    'background-position': 'left center'
+                },
+                '50%': {
+                    'background-size': '200% 200%',
+                    'background-position': 'right center'
+                },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #030014;
+        color: #F1F5F9;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overflow-x: hidden;
+      }
+      
+      /* Typography Defaults */
+      h1, h2, h3, h4, h5, h6 {
+        font-family: 'Space Grotesk', sans-serif;
+        letter-spacing: -0.02em; 
+      }
+      
+      /* Custom Scrollbar (Dark) */
+      ::-webkit-scrollbar {
+        width: 6px; 
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #030014; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #1E293B; 
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #475569; 
+      }
+      
+      /* Noise Texture */
+      .bg-noise {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.035;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+      }
+
+      /* Glass Materials - Dark Mode */
+      .glass-panel {
+        background: rgba(15, 17, 35, 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      
+      .glass-sidebar {
+        background: rgba(3, 0, 20, 0.7);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      
+      .glass-header {
+        background: rgba(3, 0, 20, 0.5);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      /* Cursor */
+      .typewriter-cursor {
+        position: relative;
+        color: #818CF8; /* Primary color */
+      }
+      
+      .typewriter-cursor:focus {
+          outline: none;
+          border-color: #818CF8;
+          box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.2);
+      }
+      
+      /* Animation for the cursor caret */
+      @keyframes blink {
+        0%, 100% { border-right-color: transparent; }
+        50% { border-right-color: #818CF8; }
+      }
+      
+      .selection-highlight::selection {
+        background: rgba(99, 102, 241, 0.3);
+        color: #fff;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "clsx": "https://aistudiocdn.com/clsx@^2.1.1",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "tailwind-merge": "https://aistudiocdn.com/tailwind-merge@^3.4.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "react-hook-form": "https://aistudiocdn.com/react-hook-form@^7.66.1",
+    "dnd-kit": "https://aistudiocdn.com/@dnd-kit/core@6.1.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="selection-highlight">
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
