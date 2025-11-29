@@ -5,7 +5,7 @@ import { Button, Card, Badge } from '../components/ui';
 import { Template, ViewMode } from '../types';
 import { Layout, Palette, Briefcase, Eye, Check, X, Smartphone, Tablet, Monitor } from 'lucide-react';
 import { PreviewFrame } from '../components/PreviewFrame';
-import { getMockPortfolioForTemplate } from '../constants';
+import { getRenderedDemoHtml } from '../constants';
 
 interface TemplateGalleryProps {
   templates: Template[];
@@ -23,10 +23,28 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ templates, onS
   const [activeCategory, setActiveCategory] = useState('All');
   const [selectedPreview, setSelectedPreview] = useState<Template | null>(null);
   const [previewViewMode, setPreviewViewMode] = useState<ViewMode>('desktop');
+  const [compiledHtml, setCompiledHtml] = useState<string>('');
 
   const filteredTemplates = templates.filter(t => 
     activeCategory === 'All' || t.style.toLowerCase() === activeCategory.toLowerCase()
   );
+
+  React.useEffect(() => {
+    setCompiledHtml('');
+    if (!selectedPreview) return;
+    getRenderedDemoHtml(selectedPreview).then(setCompiledHtml).catch(() => setCompiledHtml(''));
+  }, [selectedPreview]);
+
+  const previewData = React.useMemo(() => {
+    if (!selectedPreview) return {} as any;
+    const dd: any = selectedPreview.demoData || {};
+    const normalized: any = { ...dd };
+    if (dd.basics) Object.assign(normalized, dd.basics);
+    if (dd.design) Object.assign(normalized, dd.design);
+    if (dd.portfolio) normalized.projects = dd.portfolio;
+    if (dd.projects) normalized.projects = dd.projects;
+    return normalized;
+  }, [selectedPreview]);
 
   return (
     <div className="space-y-16 pb-20">
@@ -213,7 +231,9 @@ export const TemplateGallery: React.FC<TemplateGalleryProps> = ({ templates, onS
                      <div className="absolute inset-0 bg-noise opacity-20 pointer-events-none" />
                      
                      <PreviewFrame 
-                        portfolio={getMockPortfolioForTemplate(selectedPreview)}
+                        compiledHtml={compiledHtml}
+                        template={selectedPreview}
+                        data={previewData}
                         viewMode={previewViewMode}
                         className="h-full bg-transparent"
                      />

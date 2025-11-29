@@ -6,14 +6,20 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { Wand2, Save, Eye, Plus, Trash2, ArrowLeft, Upload, FileText, CheckCircle2, GripVertical, Sidebar, Monitor, Smartphone, Tablet, Sparkles, FileDown, Rocket, ExternalLink, ArrowRight, Check, Bot, Layout, Terminal, Palette, Briefcase, User, Type, BoxSelect } from 'lucide-react';
 import { Button, Input, Textarea, SpotlightCard, Badge, Modal, Confetti, MagicButton, AiProcessingOverlay, DiffModal, cn, useDebounce, Toast, ProjectStatusBadge } from '../components/ui';
 import { PreviewFrame } from '../components/PreviewFrame';
-import { PortfolioData } from '../types';
+import { Portfolio, PortfolioVersion, Template } from '../types';
+import { SchemaForm } from '../components/SchemaForm';
 import { polishText, generateStructure } from '../services/geminiService';
 
 interface EditorProps {
-  portfolio: PortfolioData;
-  onSave: (data: PortfolioData) => void;
+  portfolio: Portfolio;
+  version: PortfolioVersion;
+  template?: Template | null;
+  onSave: (nextData: Record<string, any>) => void;
   onPreview: () => void;
   onBack: () => void;
+  status: { isPublished: boolean; lastModified: Date; lastPublished?: Date };
+  onPublish?: () => void;
+  onRename?: (name: string) => void;
 }
 
 type DeployStage = 'idle' | 'review' | 'building' | 'success';
@@ -137,8 +143,9 @@ const DeploymentOverlay: React.FC<{
     );
 };
 
-export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, onBack }) => {
-  const [activeTab, setActiveTab] = useState<'basics' | 'projects' | 'design'>('basics');
+export const Editor: React.FC<EditorProps> = ({ portfolio, version, template, onSave, onPreview, onBack, status, onPublish, onRename }) => {
+  const sections = template?.schema?.sections || [];
+  const [activeSectionId, setActiveSectionId] = useState<string>(sections[0]?.id || '');
   
   // AI State
   const [isAiProcessing, setIsAiProcessing] = useState(false);
@@ -178,8 +185,8 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
   const [deployProgress, setDeployProgress] = useState(0);
   const [deployLog, setDeployLog] = useState<string>('Initializing...');
 
-  const { register, control, handleSubmit, setValue, watch, getValues } = useForm<PortfolioData>({
-    defaultValues: portfolio
+  const { register, control, handleSubmit, setValue, watch, getValues } = useForm<Record<string, any>>({
+    defaultValues: version.data
   });
 
   const { fields, append, remove, replace: replaceFields } = useFieldArray({
@@ -194,8 +201,8 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
   const bioValue = watch('bio');
 
   // Determine Sync Status for UI
-  const isUnsynced = portfolio.isPublished && portfolio.lastPublished && 
-      new Date(portfolio.lastModified).getTime() > new Date(portfolio.lastPublished).getTime() + 1000;
+  const isUnsynced = status.isPublished && status.lastPublished && 
+      new Date(status.lastModified).getTime() > new Date(status.lastPublished).getTime() + 1000;
 
   // Simulate Ghost Text Logic
   useEffect(() => {
@@ -228,7 +235,7 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
   };
 
   const handleAiPolish = async (
-      field: keyof PortfolioData | `projects.${number}.description`, 
+      field: keyof Record<string, any> | `projects.${number}.description`, 
       context: 'bio' | 'project' | 'title'
   ) => {
     const currentValue = getValues(field as any);
@@ -288,21 +295,14 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
 
   // Manual Save Handlers
   const handleManualSaveClick = () => {
-      setSaveName(getValues('name') || portfolio.name);
+      setSaveName(portfolio.name);
       setIsSaveModalOpen(true);
   };
 
   const confirmSave = () => {
       const currentData = getValues();
-      
-      // Update the form name field locally too, so header reflects it if needed immediately
-      setValue('name', saveName);
-
-      onSave({
-          ...currentData,
-          name: saveName,
-          lastModified: new Date()
-      });
+      onSave({ ...currentData });
+      if (onRename && saveName && saveName.trim()) onRename(saveName.trim());
       
       setIsSaveModalOpen(false);
       setShowToast(true);
@@ -331,15 +331,8 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
           if (stepIndex >= steps.length) {
               clearInterval(interval);
               setDeployStage('success');
-              const currentData = getValues();
-              const now = new Date();
-              onSave({ 
-                  ...currentData, 
-                  isPublished: true, 
-                  publishedUrl: `https://folioforge.vercel.app/${portfolio.id}`,
-                  lastModified: now,
-                  lastPublished: now
-              });
+              onSave(getValues());
+              onPublish && onPublish();
               return;
           }
           const step = steps[stepIndex];
@@ -411,11 +404,7 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
       ]);
   };
 
-  const tabItems = [
-    { id: 'basics', label: 'Basics', icon: User },
-    { id: 'projects', label: 'Projects', icon: Briefcase },
-    { id: 'design', label: 'Visual Identity', icon: Palette }
-  ];
+  const tabItems = sections.map((s) => ({ id: s.id, label: s.label }));
 
   return (
     <motion.div 
@@ -431,9 +420,9 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
                 <div className="h-6 w-px bg-white/10" />
                 <h1 className="font-display font-bold text-lg text-white truncate max-w-[200px]">{portfolio.name}</h1>
                 <ProjectStatusBadge 
-                    isPublished={portfolio.isPublished} 
-                    lastModified={portfolio.lastModified} 
-                    lastPublished={portfolio.lastPublished} 
+                    isPublished={status.isPublished} 
+                    lastModified={status.lastModified} 
+                    lastPublished={status.lastPublished} 
                 />
             </div>
 
@@ -475,7 +464,7 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
                           <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
                         </span>
                     )}
-                    {isUnsynced ? 'Publish Changes' : (portfolio.isPublished ? 'Republish' : 'Publish')}
+                    {isUnsynced ? 'Publish Changes' : (status.isPublished ? 'Republish' : 'Publish')}
                 </Button>
             </div>
         </header>
@@ -491,18 +480,16 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
                 {/* Tabs */}
                 <div className="flex items-center border-b border-white/10 px-6">
                     {tabItems.map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
+                        const isActive = activeSectionId === tab.id;
                         return (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
+                                onClick={() => setActiveSectionId(tab.id)}
                                 className={cn(
                                     "flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-all",
                                     isActive ? "border-primary text-white" : "border-transparent text-text-secondary hover:text-white hover:border-white/10"
                                 )}
                             >
-                                <Icon className="w-4 h-4" />
                                 {tab.label}
                             </button>
                         );
@@ -513,10 +500,22 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 space-y-8">
                     
                     <form onSubmit={(e) => e.preventDefault()} className="space-y-8 pb-20">
+                        {template?.schema ? (
+                          <SchemaForm 
+                            schema={template.schema}
+                            data={getValues() as any}
+                            onChange={(next) => {
+                              Object.keys(next).forEach((k) => setValue(k as any, next[k], { shouldDirty: true }));
+                            }}
+                            sectionId={activeSectionId}
+                            onAiPolish={(fid, ctx) => handleAiPolish(fid as any, ctx)}
+                            optimizingFieldId={optimizingFieldId}
+                            isAiProcessing={isAiProcessing}
+                            warningFieldId={warningFieldId}
+                          />
+                        ) : (
                         <AnimatePresence mode="wait">
-                            
-                            {/* BASICS TAB */}
-                            {activeTab === 'basics' && (
+                            {activeSectionId === 'basics' && (
                                 <motion.div 
                                     key="basics"
                                     initial={{ opacity: 0, x: -20 }}
@@ -566,8 +565,7 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
                                 </motion.div>
                             )}
 
-                            {/* PROJECTS TAB */}
-                            {activeTab === 'projects' && (
+                            {activeSectionId === 'projects' && (
                                 <motion.div 
                                     key="projects"
                                     initial={{ opacity: 0, x: -20 }}
@@ -633,8 +631,7 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
                                 </motion.div>
                             )}
 
-                             {/* DESIGN TAB */}
-                            {activeTab === 'design' && (
+                            {activeSectionId === 'design' && (
                                 <motion.div 
                                     key="design"
                                     initial={{ opacity: 0, x: -20 }}
@@ -762,6 +759,7 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
                             )}
 
                         </AnimatePresence>
+                        )}
                     </form>
                 </div>
             </div>
@@ -773,7 +771,13 @@ export const Editor: React.FC<EditorProps> = ({ portfolio, onSave, onPreview, on
                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                         <span className="text-[10px] uppercase font-bold tracking-widest text-white/80">Live Preview</span>
                      </div>
-                     <PreviewFrame portfolio={debouncedValues} viewMode="desktop" scale={1} className="h-full" />
+            <PreviewFrame 
+              data={{ typography: 'sans', cornerRadius: 'smooth', themeColor: '#6366f1', ...(debouncedValues || {}) }} 
+              template={template || null}
+              viewMode="desktop" 
+              scale={1} 
+              className="h-full" 
+            />
                 </div>
             )}
         </div>

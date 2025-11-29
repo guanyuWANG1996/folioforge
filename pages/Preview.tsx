@@ -3,15 +3,15 @@ import { motion } from 'framer-motion';
 import { Smartphone, Tablet, Monitor, ArrowLeft, Rocket, CheckCircle2, Copy } from 'lucide-react';
 import { Button } from '../components/ui';
 import { PreviewFrame } from '../components/PreviewFrame';
-import { PortfolioData, ViewMode } from '../types';
+import { ViewMode } from '../types';
 
 interface PreviewProps {
-  portfolio: PortfolioData;
+  data: Record<string, any>;
   onBack: () => void;
   onPublish: () => void;
 }
 
-export const Preview: React.FC<PreviewProps> = ({ portfolio, onBack, onPublish }) => {
+export const Preview: React.FC<PreviewProps> = ({ data, onBack, onPublish }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('desktop');
   const [isPublishing, setIsPublishing] = useState(false);
   const [published, setPublished] = useState(false);
@@ -43,7 +43,7 @@ export const Preview: React.FC<PreviewProps> = ({ portfolio, onBack, onPublish }
             <p className="text-text-secondary mb-12 text-lg z-10">Your portfolio is now live and ready to share.</p>
             
             <div className="bg-surface border border-white/10 rounded-xl p-2 pl-4 mb-8 flex items-center gap-4 max-w-md w-full shadow-lg z-10">
-                <span className="text-primary-glow truncate flex-1 font-medium select-all">https://folioforge.vercel.app/{portfolio.id}</span>
+                <span className="text-primary-glow truncate flex-1 font-medium select-all">https://folioforge.vercel.app/preview</span>
                 <Button size="sm" variant="ghost" icon={<Copy className="w-4 h-4"/>}>Copy</Button>
             </div>
             
@@ -97,7 +97,7 @@ export const Preview: React.FC<PreviewProps> = ({ portfolio, onBack, onPublish }
 
       {/* Frame Container */}
       <div className="flex-1 overflow-hidden flex justify-center items-end pt-28 pb-0 md:pb-10 px-4 relative z-10">
-          <PreviewFrame portfolio={portfolio} viewMode={viewMode} className="bg-transparent" />
+          <PreviewFrame data={data} viewMode={viewMode} className="bg-transparent" />
       </div>
     </div>
   );

@@ -1,17 +1,21 @@
 
 
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { PortfolioData, ViewMode } from '../types';
+import { ViewMode, Template } from '../types';
+import Handlebars from 'handlebars';
+import '../hbsTemplates';
 
 interface PreviewFrameProps {
-    portfolio: PortfolioData;
+    data?: Record<string, any>;
+    template?: Template | null;
+    compiledHtml?: string;
     viewMode?: ViewMode;
     className?: string;
     scale?: number;
 }
 
-const PreviewFrameComponent: React.FC<PreviewFrameProps> = ({ portfolio, viewMode = 'desktop', className, scale = 1 }) => {
+const PreviewFrameComponent: React.FC<PreviewFrameProps> = ({ data = {}, template, compiledHtml: compiledHtmlProp, viewMode = 'desktop', className, scale = 1 }) => {
     // Scroll container ref for parallax calculation
     const containerRef = useRef<HTMLDivElement>(null);
     const { scrollY } = useScroll({ container: containerRef });
@@ -29,24 +33,75 @@ const PreviewFrameComponent: React.FC<PreviewFrameProps> = ({ portfolio, viewMod
     };
 
     // Design System Mappings
+    const normalizeData = (src?: Record<string, any>) => {
+        const d = src || {};
+        const flat: any = { ...d };
+        if (d.basics && typeof d.basics === 'object') {
+            Object.assign(flat, d.basics);
+        }
+        if (d.design && typeof d.design === 'object') {
+            Object.assign(flat, d.design);
+        }
+        if (d.portfolio && Array.isArray(d.portfolio)) {
+            flat.projects = d.portfolio;
+        }
+        if (d.projects && Array.isArray(d.projects)) {
+            flat.projects = d.projects;
+        }
+        return flat;
+    };
+    const nd = normalizeData(data);
     const fontClass = {
         sans: 'font-sans',
         serif: 'font-serif',
         mono: 'font-mono tracking-tight',
-    }[portfolio.typography || 'sans'];
+    }[normalizeData(data).typography || 'sans'];
 
     const radiusClass = {
         sharp: 'rounded-none',
         smooth: 'rounded-xl',
         round: 'rounded-[32px]',
-    }[portfolio.cornerRadius || 'smooth'];
+    }[normalizeData(data).cornerRadius || 'smooth'];
     
     // For smaller elements like buttons or chips, we might want slightly less radius for 'round' to avoid pill shape unless intended
     const elementRadiusClass = {
         sharp: 'rounded-none',
         smooth: 'rounded-lg',
         round: 'rounded-full',
-    }[portfolio.cornerRadius || 'smooth'];
+    }[normalizeData(data).cornerRadius || 'smooth'];
+
+    const [tplSource, setTplSource] = useState<string>('');
+    const [compiledHtml, setCompiledHtml] = useState<string>('');
+
+    useEffect(() => {
+        if (compiledHtmlProp) {
+            setCompiledHtml(compiledHtmlProp);
+            return;
+        }
+        setCompiledHtml('');
+        setTplSource('');
+        if (template?.engine === 'handlebars' && template?.id) {
+            fetch(`/api/templates/${template.id}/source`).then(async (r) => {
+                if (!r.ok) return;
+                const src = await r.text();
+                setTplSource(src);
+                try {
+                    const tpl = Handlebars.compile(src);
+                    setCompiledHtml(tpl(nd));
+                } catch {}
+            }).catch(() => {});
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [template?.id, compiledHtmlProp]);
+
+    useEffect(() => {
+        if (!tplSource) return;
+        try {
+            const tpl = Handlebars.compile(tplSource);
+            setCompiledHtml(tpl(nd));
+        } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data, tplSource]);
 
     return (
         <div className={`w-full h-full bg-secondary/20 flex justify-center items-start overflow-hidden ${className}`}>
@@ -57,25 +112,28 @@ const PreviewFrameComponent: React.FC<PreviewFrameProps> = ({ portfolio, viewMod
                 className={`${getWidth()} w-full h-full bg-white shadow-2xl overflow-hidden transition-[max-width,border-radius] duration-500 ease-in-out relative border border-border origin-top ${fontClass}`}
                 style={{ borderRadius: viewMode === 'desktop' ? 0 : 20 }}
             >
-                {/* Mock Portfolio Rendering */}
+                {/* Template Rendering */}
                 <div ref={containerRef} className="w-full h-full overflow-y-auto bg-white custom-scrollbar scroll-smooth">
+                    {compiledHtml ? (
+                        <div dangerouslySetInnerHTML={{ __html: compiledHtml }} />
+                    ) : (
                     
-                    {/* Hero Section with Parallax */}
+                    <div>
                     <div className="relative overflow-hidden min-h-[400px] flex items-center justify-center">
                         <motion.div 
-                            style={{ backgroundColor: portfolio.themeColor, y: heroY }} 
+                            style={{ backgroundColor: nd.themeColor, y: heroY }} 
                             className="absolute inset-0 z-0"
                         />
                         <motion.div 
                             style={{ opacity: heroOpacity, y: heroY }}
                             className="relative z-10 flex flex-col items-center justify-center text-white p-8 text-center"
                         >
-                            <h1 className="text-6xl font-bold mb-4 tracking-tight drop-shadow-md leading-tight">{portfolio.fullName || "Your Name"}</h1>
-                            <p className="text-xl opacity-90 font-light tracking-wide uppercase">{portfolio.title || "Job Title"}</p>
+                            <h1 className="text-6xl font-bold mb-4 tracking-tight drop-shadow-md leading-tight">{nd.fullName || "Your Name"}</h1>
+                            <p className="text-xl opacity-90 font-light tracking-wide uppercase">{nd.title || "Job Title"}</p>
                         </motion.div>
                     </div>
 
-                    {/* Bio Section with Reveal Animation */}
+                    
                     <div className="max-w-3xl mx-auto py-24 px-8">
                         <motion.div 
                             initial={{ opacity: 0, y: 30 }}
@@ -88,11 +146,11 @@ const PreviewFrameComponent: React.FC<PreviewFrameProps> = ({ portfolio, viewMod
                                 <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest">About</h2>
                                 <div className="h-px bg-gray-200 flex-1"></div>
                             </div>
-                            <p className="text-gray-900 leading-loose text-lg font-light text-center">{portfolio.bio || "Bio content goes here..."}</p>
+                            <p className="text-gray-900 leading-loose text-lg font-light text-center">{nd.bio || "Bio content goes here..."}</p>
                         </motion.div>
                     </div>
 
-                    {/* Projects Section */}
+                    
                     <div className="bg-gray-50 py-24 px-8 border-t border-gray-100">
                         <div className="max-w-5xl mx-auto">
                             <motion.h2 
@@ -105,7 +163,7 @@ const PreviewFrameComponent: React.FC<PreviewFrameProps> = ({ portfolio, viewMod
                             </motion.h2>
 
                             <div className="grid grid-cols-1 gap-16">
-                                {(portfolio.projects || []).map((p, index) => (
+                                {(nd.projects || []).map((p: any, index: number) => (
                                     <motion.div 
                                         key={p.id} 
                                         initial={{ opacity: 0, y: 50 }}
@@ -128,14 +186,14 @@ const PreviewFrameComponent: React.FC<PreviewFrameProps> = ({ portfolio, viewMod
                                             </div>
                                             <p className="text-gray-500 text-base leading-relaxed mb-6 font-light">{p.description}</p>
                                             <div className="flex flex-wrap gap-2">
-                                                {p.technologies && p.technologies.split(',').map((t, i) => (
+                                                {p.technologies && p.technologies.split(',').map((t: string, i: number) => (
                                                     <span key={i} className={`px-3 py-1 bg-white border border-gray-200 text-gray-500 text-xs font-medium uppercase tracking-wide shadow-sm ${elementRadiusClass}`}>{t.trim()}</span>
                                                 ))}
                                             </div>
                                         </div>
                                     </motion.div>
                                 ))}
-                                {(!portfolio.projects || portfolio.projects.length === 0) && (
+                                {(!nd.projects || nd.projects.length === 0) && (
                                     <div className="text-center py-10">
                                         <p className="text-gray-400 italic">No projects visible.</p>
                                     </div>
@@ -144,16 +202,18 @@ const PreviewFrameComponent: React.FC<PreviewFrameProps> = ({ portfolio, viewMod
                         </div>
                     </div>
                     
-                    {/* Footer */}
+                    
                     <div className="bg-white py-16 text-center border-t border-gray-100">
                         <motion.p 
                              initial={{ opacity: 0 }}
                              whileInView={{ opacity: 1 }}
                              className="text-gray-400 text-sm"
                         >
-                            © {new Date().getFullYear()} {portfolio.fullName}. Powered by FolioForge.
+                            © {new Date().getFullYear()} {nd.fullName}. Powered by FolioForge.
                         </motion.p>
                     </div>
+                    </div>
+                    )}
                 </div>
             </motion.div>
         </div>

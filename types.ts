@@ -1,46 +1,80 @@
+export type ViewMode = 'desktop' | 'tablet' | 'mobile';
+export type AppRoute = 'dashboard' | 'templates' | 'editor' | 'preview';
 
+// Portfolio 个人作品集原信息
+export interface Portfolio {
+  id: string;
+  name: string;
+  description?: string;
+  coverUrl?: string;
+  ownerId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
+// Template 模板原信息
 export interface Template {
   id: string;
   name: string;
   description: string;
   thumbnail: string;
-  tags: string[];
-  style: 'minimal' | 'creative' | 'corporate';
+  tags?: string[];
+  style?: string;
+  repoUrl?: string;
+  distPath?: string;
+  engine?: string; // 'handlebars'
+  schema?: TemplateSchema;
+  demoData?: Record<string, any>;
+  isActive?: boolean;
+  visibility?: string; // 'public', 'hidden', 'deprecated'
 }
 
-export interface Project {
-  id: string;
-  title: string;
-  description: string;
-  technologies: string;
-  imageUrl: string;
+export interface TemplateSchema {
+  sections: TemplateSection[];
 }
 
-export interface PortfolioData {
+export interface TemplateSection {
   id: string;
+  label: string;
+  fields: TemplateField[];
+}
+
+export type TemplateFieldType = 'text' | 'textarea' | 'select' | 'color' | 'image' | 'repeatable';
+
+export interface TemplateField {
+  id: string;
+  label: string;
+  type: TemplateFieldType;
+  required?: boolean;
+  aiOptimizable?: boolean;
+  default?: any;
+  validation?: Record<string, any>;
+  items?: TemplateField[];
+  options?: Array<{ label: string; value: string }>; 
+}
+
+export type PortfolioVersionStatus = 'draft' | 'online';
+
+export interface PortfolioVersion {
+  id: string;
+  portfolioId: string;
   templateId: string;
-  name: string; // Project Name (e.g., "My 2024 Resume")
-  fullName: string;
-  title: string; // Job Title (e.g., "Product Designer")
-  bio: string;
-  email: string;
-  projects: Project[];
-  themeColor: string;
-  typography: 'sans' | 'serif' | 'mono';
-  cornerRadius: 'sharp' | 'smooth' | 'round';
+  data: Record<string, any>;
+  status: PortfolioVersionStatus;
+  createdAt: Date;
   lastModified: Date;
-  lastPublished?: Date; // Track when the site was last live
-  isPublished: boolean;
-  publishedUrl?: string;
 }
 
-export interface UserStats {
-  totalPortfolios: number;
-  totalViews: number;
-  deploymentRate: number;
-  activeTemplates: number;
-}
+export type DeploymentStatus = 'queued' | 'building' | 'ready' | 'error';
 
-export type ViewMode = 'desktop' | 'tablet' | 'mobile';
-export type AppRoute = 'dashboard' | 'templates' | 'editor' | 'preview';
+export interface Deployment {
+  id: string;
+  portfolioVersionId: string;
+  triggeredBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  status: DeploymentStatus;
+  vercelProjectId?: string;
+  vercelDeploymentId?: string;
+  url?: string;
+}

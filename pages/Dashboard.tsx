@@ -3,29 +3,44 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Eye, Zap, ArrowRight, Clock, Globe, MoreHorizontal, Sparkles, Layout, Rocket, ChevronRight, Trash2, ExternalLink } from 'lucide-react';
 import { Button, SpotlightCard, Badge, Input, Card, ProjectStatusBadge } from '../components/ui';
-import { PortfolioData, AppRoute, Template } from '../types';
-import { MOCK_TEMPLATES } from '../constants';
+import { AppRoute, Template, ViewMode } from '../types';
+import { PreviewFrame } from '../components/PreviewFrame';
+import { getRenderedDemoHtml } from '../constants';
+
+interface DashboardItem {
+  id: string;
+  name: string;
+  title?: string;
+  isPublished: boolean;
+  lastModified: Date;
+  lastPublished?: Date;
+}
 
 interface DashboardProps {
-  portfolios: PortfolioData[];
+  items: DashboardItem[];
   onNavigate: (route: AppRoute) => void;
   onEdit: (portfolioId: string) => void;
   onDelete: (portfolioId: string) => void;
   onCreate: () => void;
   onUpdateName?: (id: string, newName: string) => void;
+  trendingTemplates?: Template[];
+  onUseTemplate?: (template: Template) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ portfolios, onNavigate, onEdit, onDelete, onCreate, onUpdateName }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ items, onNavigate, onEdit, onDelete, onCreate, onUpdateName, trendingTemplates = [], onUseTemplate }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
+  const [selectedPreview, setSelectedPreview] = useState<Template | null>(null);
+  const [previewViewMode, setPreviewViewMode] = useState<ViewMode>('desktop');
+  const [compiledHtml, setCompiledHtml] = useState<string>('');
 
   // Sort portfolios: Latest modified first
-  const sortedPortfolios = [...portfolios].sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+  const sortedPortfolios = [...items].sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
   const latestProject = sortedPortfolios[0];
   const olderProjects = sortedPortfolios.slice(1);
-  const hasProjects = portfolios.length > 0;
+  const hasProjects = items.length > 0;
 
-  const startEditingName = (p: PortfolioData, e: React.MouseEvent) => {
+  const startEditingName = (p: DashboardItem, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingId(p.id);
     setTempName(p.name);
@@ -37,6 +52,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ portfolios, onNavigate, on
     }
     setEditingId(null);
   };
+
+  React.useEffect(() => {
+    setCompiledHtml('');
+    if (!selectedPreview) return;
+    getRenderedDemoHtml(selectedPreview).then(setCompiledHtml).catch(() => setCompiledHtml(''));
+  }, [selectedPreview]);
 
   // --- Empty State / Onboarding View ---
   if (!hasProjects) {
@@ -131,14 +152,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ portfolios, onNavigate, on
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                       {MOCK_TEMPLATES.slice(0, 3).map((template) => (
+                       {(trendingTemplates || []).slice(0, 3).map((template) => (
                            <Card 
                                 key={template.id} 
-                                className="group cursor-pointer hover:border-primary/30 transition-all active:scale-[0.98]"
-                                onClick={onCreate} // Shortcut to create flow
+                                className="group cursor-pointer hover:border-primary/30 transition-all active:scale-[0.98] overflow-hidden"
                             >
-                               <div className="aspect-[16/9] bg-black/50 rounded-lg mb-4 overflow-hidden">
+                               <div className="aspect-[16/9] bg-black/50 rounded-lg mb-4 overflow-hidden relative">
                                    <img src={template.thumbnail} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" />
+                                   <div className="absolute inset-0 bg-indigo-900/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-sm gap-3">
+                                     <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 flex gap-3">
+                                       <Button 
+                                         variant="secondary" 
+                                         className="shadow-xl" 
+                                         icon={<Eye className="w-4 h-4" />} 
+                                         onClick={(e) => { e.stopPropagation(); setSelectedPreview(template); }}
+                                       >
+                                         Preview
+                                       </Button>
+                                       <Button 
+                                         variant="primary" 
+                                         className="shadow-2xl" 
+                                         icon={<ChevronRight className="w-4 h-4" />} 
+                                         onClick={(e) => { e.stopPropagation(); onUseTemplate && onUseTemplate(template); }}
+                                       >
+                                         Use
+                                       </Button>
+                                     </div>
+                                   </div>
                                </div>
                                <div className="flex justify-between items-center">
                                    <h4 className="font-bold text-white group-hover:text-primary transition-colors">{template.name}</h4>
@@ -148,6 +188,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ portfolios, onNavigate, on
                        ))}
                   </div>
               </motion.div>
+              {/* Preview Modal for Trending Templates */}
+              {selectedPreview && (
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex flex-col"
+                >
+                    <div className="h-16 border-b border-white/10 flex items-center justify-between px-6 bg-[#030014] shrink-0">
+                        <div className="flex items-center gap-4">
+                            <h2 className="text-white font-display font-bold text-lg">{selectedPreview.name}</h2>
+                            <Badge variant="outline">{selectedPreview.style}</Badge>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Button variant="ghost" onClick={() => setSelectedPreview(null)} className="text-text-secondary hover:text-white">Cancel</Button>
+                            <Button onClick={() => { onUseTemplate && onUseTemplate(selectedPreview); setSelectedPreview(null); }} icon={<ChevronRight className="w-4 h-4" />}>Use Template</Button>
+                        </div>
+                    </div>
+                    <div className="flex-1 overflow-hidden relative bg-[#050505] flex items-center justify-center p-4 md:p-8">
+                        <PreviewFrame 
+                            compiledHtml={compiledHtml}
+                            template={selectedPreview}
+                            viewMode={previewViewMode}
+                            className="h-full bg-transparent"
+                        />
+                    </div>
+                </motion.div>
+              )}
           </div>
       );
   }

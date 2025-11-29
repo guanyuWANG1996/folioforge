@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, HTMLMotionProps, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -756,4 +757,146 @@ export const DiffModal: React.FC<DiffModalProps> = ({ isOpen, onClose, original,
             </div>
         </Modal>
     );
+};
+
+// --- Select Control ---
+interface SelectControlProps {
+  label?: string;
+  labelAction?: React.ReactNode;
+  options: Array<{ label: string; value: string }>;
+  value?: string;
+  onChange: (value: string) => void;
+  isOptimizing?: boolean;
+  isWarning?: boolean;
+}
+
+export const SelectControl: React.FC<SelectControlProps> = ({ label, labelAction, options, value, onChange, isOptimizing, isWarning }) => {
+  const selected = value ?? (options[0]?.value ?? "");
+  return (
+    <div className="w-full space-y-1.5">
+      <div className="flex justify-between items-center ml-1">
+        {label && <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">{label}</label>}
+        {labelAction && <div>{labelAction}</div>}
+      </div>
+      <div className={cn("relative rounded-[12px] transition-all duration-300", isOptimizing && "opacity-70")}> 
+        <select
+          value={selected}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={isOptimizing}
+          className={cn(
+            "h-[48px] w-full bg-[#0F1123] rounded-[11px] border px-4 text-[15px] text-white focus:border-primary/50 focus:outline-none",
+            isWarning ? "border-error/50" : "border-white/10"
+          )}
+        >
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+};
+
+// --- Color Picker ---
+interface ColorPickerProps {
+  label?: string;
+  labelAction?: React.ReactNode;
+  value?: string;
+  onChange: (value: string) => void;
+  presets?: Array<{ name: string; color: string }>;
+}
+
+export const ColorPicker: React.FC<ColorPickerProps> = ({ label, labelAction, value = '#6366f1', onChange, presets = [
+  { color: '#6366f1', name: 'Indigo' },
+  { color: '#ec4899', name: 'Pink' },
+  { color: '#10b981', name: 'Emerald' },
+  { color: '#f59e0b', name: 'Amber' },
+  { color: '#3b82f6', name: 'Blue' },
+  { color: '#8b5cf6', name: 'Violet' },
+  { color: '#ef4444', name: 'Red' },
+  { color: '#18181b', name: 'Zinc' },
+] }) => {
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center ml-1">
+        {label && <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">{label}</label>}
+        {labelAction}
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        {presets.map(({ color, name }) => {
+          const isActive = value === color;
+          return (
+            <button
+              key={color}
+              onClick={() => onChange(color)}
+              className={cn("group relative w-full h-12 flex items-center gap-3 px-3 rounded-xl border transition-all duration-300", isActive ? "bg-white/5 border-white/20" : "border-transparent hover:bg-white/5")}
+            >
+              <div 
+                className={cn("w-8 h-8 rounded-full shadow-lg transition-transform flex-shrink-0", isActive && "scale-105")}
+                style={{ backgroundColor: color }}
+              />
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-3">
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} />
+        <input 
+          type="text" 
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-28 rounded-md bg-black/20 border border-white/10 px-3 text-sm text-white focus:border-primary/50 focus:outline-none"
+        />
+      </div>
+    </div>
+  );
+};
+
+// --- Image Upload ---
+interface ImageUploadProps {
+  label?: string;
+  labelAction?: React.ReactNode;
+  value?: string;
+  onChange: (value: string) => void;
+}
+
+export const ImageUpload: React.FC<ImageUploadProps> = ({ label, labelAction, value, onChange }) => {
+  const [preview, setPreview] = useState<string | null>(value || null);
+  const handleFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => { const url = String(e.target?.result || ''); setPreview(url); onChange(url); };
+    reader.readAsDataURL(file);
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center ml-1">
+        {label && <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">{label}</label>}
+        {labelAction}
+      </div>
+      <div className="rounded-xl overflow-hidden border border-white/10 bg-white/5">
+        <div className="aspect-video bg-black/20 flex items-center justify-center">
+          {preview ? (
+            <img src={preview} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-text-secondary text-sm">No image</span>
+          )}
+        </div>
+        <div className="p-3 flex items-center gap-3">
+          <input 
+            type="text" 
+            placeholder="Paste image URL" 
+            value={value || ''}
+            onChange={(e) => { onChange(e.target.value); setPreview(e.target.value || null); }}
+            className="flex-1 h-10 rounded-md bg-black/20 border border-white/10 px-3 text-sm text-white focus:border-primary/50 focus:outline-none"
+          />
+          <label className="inline-flex items-center h-10 px-3 rounded-md bg-surface border border-white/10 text-sm cursor-pointer hover:bg-surface-light">
+            Upload
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+          </label>
+        </div>
+      </div>
+    </div>
+  );
 };
